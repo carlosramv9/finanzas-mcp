@@ -1,17 +1,22 @@
 /**
  * Aplica las migraciones pendientes de db/migrations.
- *   npm run db:migrate            -> usa DATABASE_URL
+ *   npm run db:migrate            -> usa DATABASE_URL_UNPOOLED o, si no existe, DATABASE_URL
  *   npm run db:migrate -- --test  -> usa DATABASE_URL_TEST
+ *
+ * Se prefiere la conexión directa (sin pooler): el advisory lock es de sesión
+ * y PgBouncer en modo transacción no garantiza la misma sesión.
  */
 import { fileURLToPath } from "node:url";
 import { aplicarMigraciones } from "../src/db/migraciones";
 
-const usarPrueba = process.argv.includes("--test");
-const variable = usarPrueba ? "DATABASE_URL_TEST" : "DATABASE_URL";
-const url = process.env[variable];
+const candidatas = process.argv.includes("--test")
+  ? ["DATABASE_URL_TEST"]
+  : ["DATABASE_URL_UNPOOLED", "DATABASE_URL"];
+const variable = candidatas.find((v) => process.env[v]);
+const url = variable && process.env[variable];
 
-if (!url) {
-  console.error(`Falta la variable de entorno ${variable}.`);
+if (!variable || !url) {
+  console.error(`Falta la variable de entorno ${candidatas.join(" o ")}.`);
   process.exit(1);
 }
 
