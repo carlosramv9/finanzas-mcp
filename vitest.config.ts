@@ -3,6 +3,13 @@ import { defineConfig } from "vitest/config";
 
 const alias = { "@": fileURLToPath(new URL("./src", import.meta.url)) };
 
+// Carga DATABASE_URL_TEST (y demás) desde .env si existe.
+try {
+  process.loadEnvFile();
+} catch {
+  // Sin .env: las pruebas de integración se omiten.
+}
+
 export default defineConfig({
   test: {
     projects: [
