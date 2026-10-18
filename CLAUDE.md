@@ -32,7 +32,9 @@ Una app web separada (Next.js, fase posterior) consultará la misma base de dato
 
 \- Next.js (App Router) desplegado en Vercel, con el servidor MCP en una route handler.
 
-\- SDK oficial de MCP para TypeScript (`@modelcontextprotocol/sdk`) con transporte
+\- SDK oficial de MCP para TypeScript v2 (`@modelcontextprotocol/server`) vía el adaptador
+
+&#x20; `mcp-handler` v2 de Vercel (decisión en `docs/PLAN.md`), con transporte
 
 &#x20; \*\*Streamable HTTP\*\* (no SSE, está en desuso). Si existe un adaptador oficial o
 
