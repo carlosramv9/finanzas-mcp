@@ -102,6 +102,15 @@ export function registrarHerramienta(
       outputSchema: h.salida,
       annotations: { title: h.titulo, ...h.anotaciones },
     },
-    (argumentos: unknown) => ejecutarHerramienta(h, argumentos, obtenerContexto()),
+    (argumentos: unknown) => {
+      let ctx: Contexto;
+      try {
+        ctx = obtenerContexto();
+      } catch (error) {
+        console.error("Configuración inválida:", error instanceof Error ? error.message : error);
+        return respuestaError("El servidor no está configurado correctamente. Revisa sus variables de entorno.");
+      }
+      return ejecutarHerramienta(h, argumentos, ctx);
+    },
   );
 }
