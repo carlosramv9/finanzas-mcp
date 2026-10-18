@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Variables de entorno: nunca commitear secretos
+.env
+.env.*
+!.env.example
+
+.vercel/
+.DS_Store
