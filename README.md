@@ -2,7 +2,8 @@
 
 Servidor MCP remoto (Streamable HTTP) para que Claude registre y consulte cargos y abonos
 bancarios en PostgreSQL (Neon). Requisitos y decisiones: [`CLAUDE.md`](CLAUDE.md) y
-[`docs/PLAN.md`](docs/PLAN.md). Despliegue: [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
+[`docs/PLAN.md`](docs/PLAN.md). Despliegue: [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md). Pendientes y fase 2:
+[`docs/PENDIENTES.md`](docs/PENDIENTES.md).
 
 ## Herramientas
 
