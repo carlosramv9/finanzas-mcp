@@ -11,7 +11,8 @@ export const listarMovimientos = definirHerramienta({
   descripcion:
     "Consulta movimientos guardados, del más reciente al más antiguo. Todos los filtros son " +
     "opcionales y se combinan: periodo (desde/hasta, inclusive), tipo ('cargo' o 'abono'), " +
-    "categoria, y texto contenido en el concepto. Devuelve hasta 'limite' movimientos " +
+    "categoria, estado y texto contenido en el concepto. Cada movimiento incluye su estado " +
+    "y motivo_estado. Devuelve hasta 'limite' movimientos " +
     "(por defecto 50, máximo 200) con su id, útil para actualizar_movimiento. Solo lectura.",
   entrada: filtrosListado,
   salida: z.object({
@@ -39,6 +40,7 @@ export const listarMovimientos = definirHerramienta({
       ...normalizarRango(filtros, zonaHoraria),
       tipo: filtros.tipo,
       categoria,
+      estado: filtros.estado,
       texto: filtros.texto,
       limite: filtros.limite,
     });

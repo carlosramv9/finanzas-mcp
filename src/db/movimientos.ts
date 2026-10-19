@@ -1,3 +1,4 @@
+import type { Estado } from "@/validation/movimiento";
 import type { Consulta, Db, Fila } from "./cliente";
 
 export interface Movimiento {
@@ -12,6 +13,8 @@ export interface Movimiento {
   origen: "correo" | "manual";
   id_correo: string | null;
   notas: string | null;
+  estado: Estado;
+  motivo_estado: string | null;
   creado_en: string;
   actualizado_en: string;
 }
@@ -28,6 +31,8 @@ export interface DatosMovimiento {
   origen: "correo" | "manual";
   id_correo?: string;
   notas?: string;
+  estado?: Estado;
+  motivo_estado?: string;
 }
 
 export interface ResultadoInsercion {
@@ -37,7 +42,8 @@ export interface ResultadoInsercion {
 }
 
 const COLUMNAS =
-  "id, tipo, monto, moneda, fecha, concepto, categoria, cuenta, origen, id_correo, notas, creado_en, actualizado_en";
+  "id, tipo, monto, moneda, fecha, concepto, categoria, cuenta, origen, id_correo, notas, " +
+  "estado, motivo_estado, creado_en, actualizado_en";
 
 const aIso = (valor: unknown) =>
   (valor instanceof Date ? valor : new Date(String(valor))).toISOString();
@@ -55,6 +61,8 @@ export function aMovimiento(fila: Fila): Movimiento {
     origen: fila.origen as Movimiento["origen"],
     id_correo: (fila.id_correo as string | null) ?? null,
     notas: (fila.notas as string | null) ?? null,
+    estado: ((fila.estado as Estado | undefined) ?? "completado"),
+    motivo_estado: (fila.motivo_estado as string | null) ?? null,
     creado_en: aIso(fila.creado_en),
     actualizado_en: aIso(fila.actualizado_en),
   };
@@ -69,8 +77,9 @@ export function consultaInsercion(m: DatosMovimiento): Consulta {
     texto: `
       WITH nuevo AS (
         INSERT INTO movimientos
-          (tipo, monto, moneda, fecha, concepto, categoria, cuenta, origen, id_correo, notas)
-        VALUES ($1, $2, $3, $4::timestamptz, $5, $6, $7, $8, $9, $10)
+          (tipo, monto, moneda, fecha, concepto, categoria, cuenta, origen, id_correo, notas,
+           estado, motivo_estado)
+        VALUES ($1, $2, $3, $4::timestamptz, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (id_correo) DO NOTHING
         RETURNING ${COLUMNAS}
       )
@@ -89,6 +98,8 @@ export function consultaInsercion(m: DatosMovimiento): Consulta {
       m.origen,
       m.id_correo ?? null,
       m.notas ?? null,
+      m.estado ?? "completado",
+      m.motivo_estado ?? null,
     ],
   };
 }
@@ -121,6 +132,7 @@ export interface FiltrosConsulta {
   hastaInclusivo?: string;
   tipo?: "cargo" | "abono";
   categoria?: string;
+  estado?: Estado;
   texto?: string;
   limite: number;
 }
@@ -140,6 +152,7 @@ function construirWhere(f: Omit<FiltrosConsulta, "limite">, valores: unknown[]):
   if (f.hastaInclusivo) condiciones.push(`fecha <= ${param(f.hastaInclusivo)}::timestamptz`);
   if (f.tipo) condiciones.push(`tipo = ${param(f.tipo)}`);
   if (f.categoria) condiciones.push(`categoria = ${param(f.categoria)}`);
+  if (f.estado) condiciones.push(`estado = ${param(f.estado)}`);
   if (f.texto) condiciones.push(`concepto ILIKE ${param(`%${escaparLike(f.texto)}%`)}`);
   return condiciones.length ? `WHERE ${condiciones.join(" AND ")}` : "";
 }
@@ -173,13 +186,16 @@ export interface ResumenMoneda {
 
 const redondear = (n: number) => Math.round(n * 100) / 100;
 
-/** Totales del periodo agrupados por moneda (no se suman monedas distintas). */
+/**
+ * Totales del periodo agrupados por moneda (no se suman monedas distintas).
+ * Solo movimientos completados: pendientes, cancelados y rechazados no cuentan.
+ */
 export async function resumirPeriodo(
   db: Db,
   rango: Pick<FiltrosConsulta, "desde" | "hastaExclusivo" | "hastaInclusivo">,
 ): Promise<ResumenMoneda[]> {
   const valores: unknown[] = [];
-  const where = construirWhere(rango, valores);
+  const where = construirWhere({ ...rango, estado: "completado" }, valores);
   const filas = await db.consultar({
     texto: `
       SELECT moneda, categoria,
@@ -230,6 +246,8 @@ export interface CambiosDatos {
   notas?: string | null;
   fecha?: string;
   monto?: number;
+  estado?: Estado;
+  motivo_estado?: string | null;
 }
 
 /** Actualiza solo los campos presentes; `null` si el id no existe. */
@@ -249,6 +267,8 @@ export async function actualizarMovimiento(
   if (cambios.notas !== undefined) asignar("notas", cambios.notas);
   if (cambios.fecha !== undefined) asignar("fecha", cambios.fecha, "::timestamptz");
   if (cambios.monto !== undefined) asignar("monto", cambios.monto.toFixed(2));
+  if (cambios.estado !== undefined) asignar("estado", cambios.estado);
+  if (cambios.motivo_estado !== undefined) asignar("motivo_estado", cambios.motivo_estado);
   valores.push(id);
 
   const filas = await db.consultar({

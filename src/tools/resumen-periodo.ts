@@ -26,7 +26,8 @@ export const resumenPeriodo = definirHerramienta({
   descripcion:
     "Resume un periodo (desde y hasta, inclusive): total de cargos, total de abonos, balance " +
     "(abonos − cargos) y desglose por categoría con total y número de movimientos, ordenado " +
-    "de mayor a menor gasto. Si hay varias monedas, se resume cada una por separado. " +
+    "de mayor a menor gasto. Si hay varias monedas, se resume cada una por separado. Solo " +
+    "cuenta movimientos completados (no pendientes, cancelados ni rechazados). " +
     "Solo lectura.",
   entrada: rangoResumen,
   salida: z.object({

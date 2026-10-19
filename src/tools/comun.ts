@@ -17,6 +17,8 @@ export const movimientoSalida = z.object({
   origen: z.enum(["correo", "manual"]),
   id_correo: z.string().nullable(),
   notas: z.string().nullable(),
+  estado: z.enum(["completado", "pendiente", "cancelado", "rechazado"]),
+  motivo_estado: z.string().nullable(),
   creado_en: z.string(),
   actualizado_en: z.string(),
 });
@@ -60,5 +62,9 @@ export function formatearMonto(monto: number, moneda: string): string {
 /** Línea breve legible; la fecha se muestra en la zona horaria local. */
 export function describirMovimiento(m: Movimiento, zona: string): string {
   const fecha = new Intl.DateTimeFormat("sv-SE", { timeZone: zona }).format(new Date(m.fecha));
-  return `#${m.id} ${fecha} ${m.tipo} ${formatearMonto(m.monto, m.moneda)} · ${m.concepto} · ${m.categoria}`;
+  const estado =
+    m.estado === "completado"
+      ? ""
+      : ` · [${m.estado}${m.motivo_estado ? `: ${m.motivo_estado}` : ""}]`;
+  return `#${m.id} ${fecha} ${m.tipo} ${formatearMonto(m.monto, m.moneda)} · ${m.concepto} · ${m.categoria}${estado}`;
 }
