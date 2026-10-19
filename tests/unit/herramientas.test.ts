@@ -43,7 +43,7 @@ describe("registrar_movimiento", () => {
     expect(insercion.texto).toContain("ON CONFLICT (id_correo) DO NOTHING");
     expect(insercion.valores).toEqual([
       "cargo", "150.50", "MXN", "2026-10-18T10:30:00-06:00", "OXXO Insurgentes",
-      "Comida", "1234", "correo", "msg-1", null,
+      "Comida", "1234", "correo", "msg-1", null, "completado", null,
     ]);
     expect(r.structuredContent).toMatchObject({ insertado: true, movimiento: { id: 1, monto: 150.5 } });
     expect(texto(r)).toContain("Movimiento registrado");
@@ -270,5 +270,69 @@ describe("catálogo de herramientas", () => {
       expect(typeof h.anotaciones.destructiveHint).toBe("boolean");
       expect(typeof h.anotaciones.idempotentHint).toBe("boolean");
     }
+  });
+});
+
+describe("estado de movimientos", () => {
+  it("registra como completado por defecto y acepta pendiente", async () => {
+    const { db, consultas } = crearDbFalsa();
+    await ejecutar(registrarMovimiento, { ...desdeCorreo, estado: "pendiente" }, db);
+    const insercion = consultas.find((c) => c.texto.includes("INSERT"))!;
+    expect(insercion.valores?.slice(10)).toEqual(["pendiente", null]);
+  });
+
+  it("cancelar exige motivo_estado", async () => {
+    const { db, consultas } = crearDbFalsa();
+    const r = await ejecutar(actualizarMovimiento, { id: 7, estado: "cancelado" }, db);
+    expect(r.isError).toBe(true);
+    expect(texto(r)).toContain("motivo_estado");
+    expect(consultas).toHaveLength(0);
+  });
+
+  it("cancela con motivo y lo muestra en la respuesta", async () => {
+    const { db, consultas } = crearDbFalsa((c) =>
+      c.texto.includes("UPDATE")
+        ? [filaMovimiento({ estado: "cancelado", motivo_estado: "Cobro duplicado" })]
+        : undefined,
+    );
+    const r = await ejecutar(
+      actualizarMovimiento,
+      { id: 7, estado: "cancelado", motivo_estado: "Cobro duplicado" },
+      db,
+    );
+    const update = consultas.find((c) => c.texto.includes("UPDATE"))!;
+    expect(update.texto).toContain("estado = $1, motivo_estado = $2");
+    expect(update.valores).toEqual(["cancelado", "Cobro duplicado", 7]);
+    expect(texto(r)).toContain("[cancelado: Cobro duplicado]");
+  });
+
+  it("rechaza motivo en completado y estados desconocidos", async () => {
+    const { db } = crearDbFalsa();
+    expect(
+      (await ejecutar(actualizarMovimiento, { id: 7, estado: "completado", motivo_estado: "x" }, db)).isError,
+    ).toBe(true);
+    expect((await ejecutar(actualizarMovimiento, { id: 7, estado: "borrado" }, db)).isError).toBe(true);
+  });
+
+  it("rechazado no exige motivo", async () => {
+    const { db } = crearDbFalsa((c) =>
+      c.texto.includes("UPDATE") ? [filaMovimiento({ estado: "rechazado" })] : undefined,
+    );
+    expect((await ejecutar(actualizarMovimiento, { id: 7, estado: "rechazado" }, db)).isError).toBeUndefined();
+  });
+
+  it("el resumen solo suma completados", async () => {
+    const { db, consultas } = crearDbFalsa();
+    await ejecutar(resumenPeriodo, { desde: "2026-10-01", hasta: "2026-10-31" }, db);
+    const resumen = consultas.find((c) => c.texto.includes("GROUP BY"))!;
+    expect(resumen.texto).toMatch(/estado = \$\d/);
+    expect(resumen.valores).toContain("completado");
+  });
+
+  it("listar filtra por estado", async () => {
+    const { db, consultas } = crearDbFalsa();
+    await ejecutar(listarMovimientos, { estado: "pendiente" }, db);
+    expect(consultas[0]!.texto).toContain("estado = $1");
+    expect(consultas[0]!.valores).toEqual(["pendiente", 50]);
   });
 });

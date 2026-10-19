@@ -32,6 +32,43 @@ export const idCorreo = z
   .min(1, { error: "El id_correo no puede estar vacío." })
   .max(256, { error: "El id_correo admite como máximo 256 caracteres." });
 
+export const ESTADOS = ["completado", "pendiente", "cancelado", "rechazado"] as const;
+export type Estado = (typeof ESTADOS)[number];
+
+export const estado = z.enum(ESTADOS, {
+  error: "El estado debe ser 'completado', 'pendiente', 'cancelado' o 'rechazado'.",
+});
+
+export const MIN_MOTIVO_CANCELACION = 3;
+
+export const motivoEstado = z
+  .string({ error: "El motivo debe ser texto." })
+  .trim()
+  .min(1, { error: "El motivo no puede estar vacío." })
+  .max(500, { error: "El motivo admite como máximo 500 caracteres." });
+
+/** Reglas de estado/motivo compartidas por alta y actualización. */
+function validarMotivo(
+  e: Estado | undefined,
+  motivo: string | null | undefined,
+  ctx: z.RefinementCtx,
+) {
+  if (e === "cancelado" && (motivo ?? "").length < MIN_MOTIVO_CANCELACION) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["motivo_estado"],
+      message: "Cancelar un movimiento exige motivo_estado (mínimo 3 caracteres).",
+    });
+  }
+  if (e === "completado" && motivo) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["motivo_estado"],
+      message: "motivo_estado no aplica a movimientos completados.",
+    });
+  }
+}
+
 const descripciones = {
   tipo: "'cargo' para gastos/salidas de dinero, 'abono' para ingresos/depósitos.",
   monto: "Monto positivo con máximo 2 decimales, sin signo ni símbolo de moneda. Ej.: 1250.5",
@@ -45,6 +82,12 @@ const descripciones = {
   origen: "'correo' si viene de una notificación bancaria por email, 'manual' si lo dictó el usuario.",
   id_correo: "ID del mensaje de Gmail. Obligatorio si origen = 'correo'; evita duplicados.",
   notas: "Opcional. Notas libres (máx. 1000 caracteres).",
+  estado:
+    "Opcional. 'completado' (por defecto), 'pendiente', 'cancelado' o 'rechazado'. Solo los " +
+    "completados cuentan en totales.",
+  motivo_estado:
+    "Motivo del estado. OBLIGATORIO si estado = 'cancelado'; opcional en pendiente/rechazado; " +
+    "no aplica a completado.",
 } as const;
 
 /** Entrada de un movimiento nuevo (registrar_movimiento y cada elemento del lote). */
@@ -62,9 +105,12 @@ export const movimientoNuevo = z
       .describe(descripciones.origen),
     id_correo: idCorreo.optional().describe(descripciones.id_correo),
     notas: notas.optional().describe(descripciones.notas),
+    estado: estado.default("completado").describe(descripciones.estado),
+    motivo_estado: motivoEstado.optional().describe(descripciones.motivo_estado),
   })
   .strict()
   .superRefine((m, ctx) => {
+    validarMotivo(m.estado, m.motivo_estado, ctx);
     if (m.origen === "correo" && !m.id_correo) {
       ctx.addIssue({
         code: "custom",
@@ -83,7 +129,9 @@ export const movimientoNuevo = z
 
 export type MovimientoNuevo = z.output<typeof movimientoNuevo>;
 
-export const CAMPOS_ACTUALIZABLES = ["categoria", "concepto", "notas", "fecha", "monto"] as const;
+export const CAMPOS_ACTUALIZABLES = [
+  "categoria", "concepto", "notas", "fecha", "monto", "estado", "motivo_estado",
+] as const;
 
 /** Cambios permitidos por actualizar_movimiento. No incluye id_correo ni origen. */
 export const cambiosMovimiento = z
@@ -101,10 +149,20 @@ export const cambiosMovimiento = z
       .describe("Nuevas notas; null para borrarlas."),
     fecha: fechaIso.optional().describe(descripciones.fecha),
     monto: monto.optional().describe(descripciones.monto),
+    estado: estado.optional().describe(
+      "Nuevo estado. Se permite pasar de cualquier estado a cualquier otro; al volver a " +
+        "'completado' se borra el motivo.",
+    ),
+    motivo_estado: motivoEstado
+      .nullable()
+      .optional()
+      .describe(descripciones.motivo_estado + " null para borrarlo."),
   })
   .strict()
   .refine((c) => CAMPOS_ACTUALIZABLES.some((campo) => c[campo] !== undefined), {
-    error: "Indica al menos un campo a cambiar: categoria, concepto, notas, fecha o monto.",
-  });
+    error:
+      "Indica al menos un campo a cambiar: categoria, concepto, notas, fecha, monto, estado o motivo_estado.",
+  })
+  .superRefine((c, ctx) => validarMotivo(c.estado, c.motivo_estado, ctx));
 
 export type CambiosMovimiento = z.output<typeof cambiosMovimiento>;

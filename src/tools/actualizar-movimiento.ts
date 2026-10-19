@@ -10,8 +10,10 @@ export const actualizarMovimiento = definirHerramienta({
   titulo: "Actualizar movimiento",
   descripcion:
     "Corrige un movimiento existente por su id (obtenido de listar_movimientos). Solo se " +
-    "pueden cambiar: categoria, concepto, notas (null para borrarlas), fecha y monto; envía " +
-    "únicamente los campos a modificar. No permite cambiar tipo, origen ni id_correo.",
+    "pueden cambiar: categoria, concepto, notas (null para borrarlas), fecha, monto, estado " +
+    "y motivo_estado; envía únicamente los campos a modificar. Estados: 'completado', " +
+    "'pendiente', 'cancelado' (exige motivo_estado) o 'rechazado'; se puede pasar de " +
+    "cualquiera a cualquiera. No permite cambiar tipo, origen ni id_correo.",
   entrada: cambiosMovimiento,
   salida: z.object({ movimiento: movimientoSalida }),
   anotaciones: {

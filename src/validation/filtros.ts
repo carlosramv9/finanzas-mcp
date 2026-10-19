@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { aInstante, categoria, esSoloFecha, fechaIso, sumarDias, tipo } from "./comunes";
+import { estado } from "./movimiento";
 
 const descripcionDesde =
   "Inicio del periodo (inclusive). 'YYYY-MM-DD' (desde las 00:00 hora local) o fecha-hora ISO con zona.";
@@ -51,6 +52,7 @@ export const filtrosListado = z
     hasta: fechaIso.optional().describe(descripcionHasta),
     tipo: tipo.optional().describe("Filtra por 'cargo' o 'abono'."),
     categoria: categoria.optional().describe("Filtra por nombre exacto de categoría."),
+    estado: estado.optional().describe("Filtra por estado ('completado', 'pendiente', 'cancelado', 'rechazado')."),
     texto: z
       .string({ error: "El texto debe ser una cadena." })
       .trim()

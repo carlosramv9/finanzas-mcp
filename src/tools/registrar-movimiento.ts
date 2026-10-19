@@ -14,7 +14,9 @@ export const registrarMovimiento = definirHerramienta({
     "dicta un gasto (origen 'manual'). Para varios movimientos a la vez usa " +
     "registrar_movimientos_lote. Si el id_correo ya estaba registrado no duplica: devuelve " +
     "el existente con insertado = false. La categoría debe ser una de listar_categorias. " +
-    "La cuenta, si se conoce, son SOLO los últimos 4 dígitos.",
+    "La cuenta, si se conoce, son SOLO los últimos 4 dígitos. El estado por defecto es " +
+    "'completado'; usa 'pendiente' si la notificación indica que está en proceso, " +
+    "'rechazado' si el banco lo rechazó (cancelado exige motivo_estado).",
   entrada: movimientoNuevo,
   salida: z.object({
     insertado: z.boolean().describe("false si ya existía un movimiento con ese id_correo"),
